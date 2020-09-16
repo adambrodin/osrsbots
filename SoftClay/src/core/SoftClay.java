@@ -10,12 +10,12 @@ import org.osbot.rs07.api.model.Player;
 import org.osbot.rs07.script.Script;
 import org.osbot.rs07.script.ScriptManifest;
 
-@ScriptManifest(name = "SoftClay", author = "adambrodin", version = 1.0, info = "", logo = "images\soft_clay.png")
+@ScriptManifest(name = "SoftClay", author = "adambrodin", version = 1.0, info = "Makes Soft Clay by combining water with clay.", logo = "https://oldschool.runescape.wiki/images/thumb/b/b0/Soft_clay_detail.png/130px-Soft_clay_detail.png")
 public class SoftClay extends Script {
 	private static int NET_PROFIT_PER_INVENTORY = 84;
 	private static int TIME_PER_INVENTORY = 16800;
 	private static String PRIMARY_ITEM_NAME = "Clay";
-	private static String SECONDARY_ITEM_NAME ="Jug of Water";
+	private static String SECONDARY_ITEM_NAME = "Jug of Water";
 
 	private int currentSessionProfit = 0;
 	private boolean inBank = false;
@@ -74,16 +74,11 @@ public class SoftClay extends Script {
 	}
 
 	@Override
-	public void onExit() {
-		log("This session generated a net profit of: " + currentSessionProfit);
-	}
-
-	@Override
 	public void onPaint(Graphics2D g) {
 		Font font = new Font("Open Sans", Font.BOLD, 25);
 		g.setFont(font);
 		g.setColor(Color.CYAN);
-		
+
 		String netProfitText = "CURRENT SESSION NET PROFIT: " + Integer.toString(currentSessionProfit) + "GP";
 		g.drawString(netProfitText, 50, 50);
 	}
