@@ -11,19 +11,15 @@ import org.osbot.rs07.script.ScriptManifest;
 
 @ScriptManifest(name = "HousePlankMaker", author = "adambrodin", version = 1.0, info = "Makes planks using the Demon Butler.", logo = "")
 public class HousePlankMaker extends Script {
-
-	private static String HOUSE_TELEPORT_TAB = "Teleport to House";
-	private static String BANK_TELEPORT_TAB = "Camelot teleport";
-	private static String LOG_ITEM_NAME = "Teak Logs";
+	private static int HOUSE_TELEPORT_TAB_ID = 8013; // House Teleport Tab
+	private static int BANK_TELEPORT_TAB_ID = 8010; // Camelot Teleport Tab
+	private static int LOG_ITEM_ID = 6333; // Teak Logs
+	private static int PLANK_ITEM_ID = 8780; // Teak Planks
 	private static int[] houseOptionsID = new int[] { 261, 101 };
-	
+
 	// Expenses
-	private static int HOUSE_TELEPORT_TAB_PRICE = 467;
-	private static int BANK_TELEPORT_TAB_PRICE = 310;
-	private static int LOG_ITEM_PRICE = 167;
-	private static int PLANK_ITEM_PRICE = 862;
-	private static int BUTLER_COST_PER_PLANK = 500;
-	private static int BUTLER_COST_PER_USAGE = 10000 / 8;
+	private static int HOUSE_TELEPORT_TAB_PRICE, BANK_TELEPORT_TAB_PRICE, LOG_ITEM_PRICE, PLANK_ITEM_PRICE;
+	private static int BUTLER_COST_PER_PLANK = 500, BUTLER_COST_PER_USAGE = 10000 / 8;
 
 	private int planksInInv, totalPlanksMade, totalNetProfit, timeElapsedSeconds, gpPerHour, amountOfTrips;
 	private RS2Widget houseOptions, callServant;
@@ -37,6 +33,18 @@ public class HousePlankMaker extends Script {
 		inv = getInventory();
 		houseOptions = getWidgets().get(houseOptionsID[0], houseOptionsID[1]);
 		callServant = getWidgets().getWidgetContainingText("Call Servant");
+		GetItemPrices();
+	}
+
+	private void GetItemPrices() {
+		try {
+			HOUSE_TELEPORT_TAB_PRICE = grandExchange.getOverallPrice(HOUSE_TELEPORT_TAB_ID);
+			BANK_TELEPORT_TAB_ID = grandExchange.getOverallPrice(BANK_TELEPORT_TAB_ID);
+			LOG_ITEM_ID = grandExchange.getOverallPrice(LOG_ITEM_ID);
+			PLANK_ITEM_PRICE = grandExchange.getOverallPrice(PLANK_ITEM_ID);
+		} catch (Exception e) {
+			e.getStackTrace();
+		}
 	}
 
 	private void RandomizedSleep(int min, int max) throws InterruptedException {
@@ -48,7 +56,7 @@ public class HousePlankMaker extends Script {
 		BankItems();
 
 		// Teleports to player owned house
-		inv.getItem(HOUSE_TELEPORT_TAB).interact("Teleport");
+		inv.getItem(HOUSE_TELEPORT_TAB_ID).interact("Teleport");
 		RandomizedSleep(500, 2000);
 
 		// Call Demon Butler
@@ -61,7 +69,7 @@ public class HousePlankMaker extends Script {
 
 		// Teleport to a bank
 		totalPlanksMade += planksInInv;
-		inv.getItem(BANK_TELEPORT_TAB).interact("Teleport");
+		inv.getItem(BANK_TELEPORT_TAB_ID).interact("Teleport");
 		amountOfTrips++;
 	}
 
@@ -70,8 +78,8 @@ public class HousePlankMaker extends Script {
 		RandomizedSleep(100, 200);
 
 		// Exits the bot if there are no logs left
-		if (bank.contains(LOG_ITEM_NAME)) {
-			bank.withdrawAll(LOG_ITEM_NAME);
+		if (bank.contains(LOG_ITEM_ID)) {
+			bank.withdrawAll(LOG_ITEM_ID);
 		} else {
 			onExit();
 		}
@@ -113,10 +121,11 @@ public class HousePlankMaker extends Script {
 
 	private void CalculateStats() {
 		gpPerHour = totalNetProfit / ((int) timeElapsedSeconds / (60 * 60));
-		
+
 		int profitPerLog = (PLANK_ITEM_PRICE - LOG_ITEM_PRICE) - (BUTLER_COST_PER_PLANK - (BUTLER_COST_PER_USAGE / 25));
-		
-		totalNetProfit = (totalPlanksMade * profitPerLog) - ((HOUSE_TELEPORT_TAB_PRICE + BANK_TELEPORT_TAB_PRICE) * amountOfTrips);
+
+		totalNetProfit = (totalPlanksMade * profitPerLog)
+				- ((HOUSE_TELEPORT_TAB_PRICE + BANK_TELEPORT_TAB_PRICE) * amountOfTrips);
 	}
 
 	private String TimeElapsed() {
