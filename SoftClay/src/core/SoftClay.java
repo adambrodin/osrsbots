@@ -7,7 +7,7 @@ import org.osbot.rs07.script.Script;
 import org.osbot.rs07.script.ScriptManifest;
 
 @ScriptManifest(author = "adambrodin", info = "Soft Clay", name = "Soft Clay", version = 0, logo = "")
-public class Main extends Script {
+public class SoftClay extends Script {
 	private static int NET_PROFIT_PER_INVENTORY = 100;
 	private int currentSessionProfit = 0;
 	private boolean inBank = false;
