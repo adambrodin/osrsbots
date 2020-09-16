@@ -6,7 +6,7 @@ import org.osbot.rs07.api.model.Player;
 import org.osbot.rs07.script.Script;
 import org.osbot.rs07.script.ScriptManifest;
 
-@ScriptManifest(author = "adambrodin", info = "SoftClay", name = "SoftClay", version = 0, logo = "")
+@ScriptManifest(name = "SoftClay", author = "adambrodin", version = 1.0, info = "", logo = "")
 public class SoftClay extends Script {
 	private static int NET_PROFIT_PER_INVENTORY = 100;
 	private int currentSessionProfit = 0;
@@ -47,6 +47,8 @@ public class SoftClay extends Script {
 	{
 		getInventory().getItem("Clay").interact("Use");
 		getInventory().getItem("Bucket Of Water").interact("Use");
+		getKeyboard().pressKey(32);
+		getKeyboard().releaseKey(32);
 		currentSessionProfit += NET_PROFIT_PER_INVENTORY;
 	}
 
