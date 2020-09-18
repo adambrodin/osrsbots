@@ -1,5 +1,5 @@
 # OSRS Bots
-A collection of various OSRS bots written using Java in the [OSBot API](https://osbot.org/api/ "OSBot API").
+A collection of various Old-School Runescape bots written using Java in the [OSBot API](https://osbot.org/api/ "OSBot API").
 
 <b>Currently available bots:</b>
 
