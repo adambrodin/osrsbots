@@ -1,11 +1,13 @@
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.text.NumberFormat;
 import java.util.Calendar;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -17,6 +19,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import org.osbot.rs07.api.Inventory;
+import org.osbot.rs07.api.map.Area;
 import org.osbot.rs07.api.map.Position;
 import org.osbot.rs07.api.ui.RS2Widget;
 import org.osbot.rs07.input.mouse.MiniMapTileDestination;
@@ -29,10 +32,8 @@ import org.w3c.dom.Element;
 @ScriptManifest(name = "HousePlankMaker", author = "adambrodin", version = 1.0, info = "Makes planks using the Demon Butler.", logo = "https://i.imgur.com/IO9a399.png")
 public class HousePlankMaker extends Script {
 	// IDS
-	private static final int HOUSE_TELEPORT_TAB_ID = 8013; // House Teleport Tab
-	private static final int BANK_TELEPORT_TAB_ID = 8010; // Camelot Teleport Tab
-	private static final int LOG_ITEM_ID = 6333; // Teak Logs
-	private static final int PLANK_ITEM_ID = 8780; // Teak Planks
+	private static final int HOUSE_TELEPORT_TAB_ID = 8013, BANK_TELEPORT_TAB_ID = 8010, LOG_ITEM_ID = 6333,
+			PLANK_ITEM_ID = 8780;
 
 	// Expenses
 	private static final int BUTLER_COST_PER_PLANK = 500, BUTLER_COST_PER_USAGE = 10000 / 8, BOT_BREAK_CHANCE = 95,
@@ -40,27 +41,28 @@ public class HousePlankMaker extends Script {
 	private int HOUSE_TELEPORT_TAB_PRICE, BANK_TELEPORT_TAB_PRICE, LOG_ITEM_PRICE, PLANK_ITEM_PRICE;
 
 	// GUI
-	private static final int textXValue = 1720, textYValueStart = 1075;
-	private static int yValueIncrement = 25;
-	private static final int showAllTimeStatsDuration = 15;
+	private static final int guiRectWidth = 580, showAllTimeStatsDuration = 60;
+	private static int textXValue, textYValueStart, yValueIncrement = 25;
 	private Font font;
 
 	// Statistics
 	private int planksInInv, logsInBank, inventoriesLeftBeforeFailure, totalPlanksMade, sessionNetProfit,
 			sessionUptimeSeconds, gpPerHour, amountOfTrips, allTimeNetProfit = 0, allTimeUptimeSeconds = 0,
 			allTimeAverageGpPerHour, timeUntilFailure;
-	private String expectedFailureTime = "CALCULATING...";
-	private RS2Widget houseOptions, callServant;
-	private long startTimeMillis;
-	private String currentBotStatus = "Idling...";
+	private RS2Widget houseOptions, callServant, invLeftBarWidget, settingsMenu;
 	private Calendar calendar;
+	private long startTimeMillis;
+	private String expectedFailureTime = "CALCULATING...", currentBotStatus = "Idling...";
 
 	// Etc
+	private static final int standardRandomMinPause = 750, standardRandomMaxPause = 1250;
+	private Area pvpZoneOutsideHouse;
 	private Random rand;
 	private Inventory inv;
+	private Client socketClient;
 
 	// IO
-	final String filePath = getDirectoryData() + "houseplankmaker.xml";
+	final String filePath = getDirectoryData() + "HousePlankMaker.xml";
 
 	private void LoadAllTimeStats() {
 		try {
@@ -113,6 +115,9 @@ public class HousePlankMaker extends Script {
 	@Override
 	public void onStart() {
 		log("HousePlankMaker - made by Adam Brodin");
+		invLeftBarWidget = getWidgets().get(161, 34);
+		settingsMenu = getWidgets().get(161, 42);
+		pvpZoneOutsideHouse = new Area(2953, 3223, 2953, 3229);
 		calendar = Calendar.getInstance();
 		LoadAllTimeStats();
 		startTimeMillis = System.currentTimeMillis();
@@ -120,6 +125,12 @@ public class HousePlankMaker extends Script {
 		rand = new Random();
 		inv = getInventory();
 		GetItemPrices();
+		socketClient = new Client();
+		socketClient.SetAccountName(myPlayer().getName());
+
+		if (pvpZoneOutsideHouse.contains(myPlayer())) {
+			inv.getItem(BANK_TELEPORT_TAB_ID).interact("Break");
+		}
 	}
 
 	private void GetItemPrices() {
@@ -131,6 +142,11 @@ public class HousePlankMaker extends Script {
 		} catch (Exception e) {
 			e.getStackTrace();
 		}
+	}
+
+	private void RandomizedSleep() throws InterruptedException {
+		int randSleepTime = (rand.nextInt(standardRandomMinPause) + 1) + standardRandomMaxPause;
+		Thread.sleep(randSleepTime);
 	}
 
 	private void RandomizedSleep(int min, int max) throws InterruptedException {
@@ -152,29 +168,35 @@ public class HousePlankMaker extends Script {
 	private void RandomizedHouseWalk() {
 		currentBotStatus = "MOVING TO RANDOM LOCATION";
 		Position randWalkPos = new Position(myPosition().getX() + (rand.nextInt(3) + 1) + -3,
-				myPosition().getY() + (rand.nextInt(1) + 1), 0);
+				myPosition().getY() + (rand.nextInt(1) + 1), 2);
 		MiniMapTileDestination tileSpot = new MiniMapTileDestination(getBot(), randWalkPos);
 		getMouse().click(tileSpot);
 	}
 
 	private void EventOrder() throws InterruptedException {
+		textXValue = invLeftBarWidget.getAbsX() - guiRectWidth;
+		textYValueStart = invLeftBarWidget.getAbsY();
+
 		// Bank Items
 		BankItems();
-		RandomizedSleep(750, 1250);
 
-		// Teleports to player owned house
-		currentBotStatus = "TELEPORTING TO PLAYER-OWNED HOUSE";
-		inv.getItem(HOUSE_TELEPORT_TAB_ID).interact("Break");
-		RandomizedSleep(3000, 4000, false);
-		RandomizedHouseWalk();
+		if (inv.getEmptySlots() <= 0 && !inv.contains(PLANK_ITEM_ID)) {
+			// Teleports to player owned house
+			currentBotStatus = "TELEPORTING TO PLAYER-OWNED HOUSE";
+			inv.getItem(HOUSE_TELEPORT_TAB_ID).interact("Break");
+			while (!getMap().isInHouse()) {
+				RandomizedSleep(100, 200);
+			}
+			RandomizedHouseWalk();
 
-		// Call Demon Butler
-		CallButler();
-		RandomizedSleep(1250, 1750);
+			// Call Demon Butler
+			CallButler();
+			RandomizedSleep(1250, 1750);
 
-		// Go through butler dialog
-		ButlerDialogue();
-		RandomizedSleep(750, 1250);
+			// Go through butler dialog
+			ButlerDialogue();
+			RandomizedSleep();
+		}
 
 		// Teleport to a bank
 		currentBotStatus = "TELEPORTING TO BANK";
@@ -190,7 +212,10 @@ public class HousePlankMaker extends Script {
 		// Prevent wasting time withdrawing items if they already exist in inventory
 		if (!inv.contains(LOG_ITEM_ID)) {
 			bank.open();
-			RandomizedSleep(750, 1250);
+			if (!inv.contains("Coins")) {
+				bank.withdrawAll("Coins");
+			}
+			RandomizedSleep();
 		}
 
 		// If an issue occurred which made the planks remain in the inventory
@@ -206,7 +231,7 @@ public class HousePlankMaker extends Script {
 			}
 		}
 
-		RandomizedSleep(750, 1250);
+		RandomizedSleep();
 		if (bank.isOpen()) {
 			bank.close();
 		}
@@ -217,19 +242,24 @@ public class HousePlankMaker extends Script {
 
 	private void CallButler() throws InterruptedException {
 		currentBotStatus = "CALLING SERVANT";
-		getKeyboard().pressKey(KeyEvent.VK_F10);
-		RandomizedSleep(750, 1250);
+		settingsMenu.interact();
+		RandomizedSleep();
 
 		houseOptions = getWidgets().get(261, 101);
 		if (houseOptions != null) {
 			houseOptions.interact();
 		}
 
-		RandomizedSleep(750, 1250);
+		RandomizedSleep();
 		callServant = getWidgets().get(370, 19, 0);
 		if (callServant != null) {
 			callServant.interact();
 		}
+	}
+
+	private void ShowChatbox() {
+		RS2Widget chatboxWidget = getWidgets().get(162, 5);
+		chatboxWidget.interact();
 	}
 
 	private void ButlerDialogue() throws InterruptedException {
@@ -237,11 +267,18 @@ public class HousePlankMaker extends Script {
 		dialogStartHasLogs = inv.contains(LOG_ITEM_ID);
 
 		currentBotStatus = "IN DIALOGUE WITH SERVANT";
+		int timeBefore = sessionUptimeSeconds;
 		while (getDialogues().inDialogue()) {
 			getKeyboard().typeKey((char) KeyEvent.VK_1);
-			RandomizedSleep(750, 1250);
+			RandomizedSleep();
 			getKeyboard().pressKey(KeyEvent.VK_SPACE);
-			RandomizedSleep(750, 1250);
+			RandomizedSleep();
+
+			// If the bot gets stuck because the chatbox is hidden, show it again
+			if (sessionUptimeSeconds - timeBefore > 15) {
+				ShowChatbox();
+				timeBefore = sessionUptimeSeconds;
+			}
 		}
 
 		RandomizedSleep(250, 500);
@@ -261,7 +298,7 @@ public class HousePlankMaker extends Script {
 		}
 
 		int randDelay = rand.nextInt(100);
-		if (randDelay >= BOT_BREAK_CHANCE) {
+		if (randDelay >= BOT_BREAK_CHANCE && sessionUptimeSeconds >= 300) {
 			// Takes a break randomly based on a set chance (anti-ban measure)
 			currentBotStatus = "TAKING A BREAK.....";
 			return (int) (rand.nextInt(BOT_BREAK_DURATION) + 1) + BOT_BREAK_DURATION / 2;
@@ -291,6 +328,9 @@ public class HousePlankMaker extends Script {
 
 		int averageTimePerInventory = sessionUptimeSeconds / amountOfTrips;
 		timeUntilFailure = inventoriesLeftBeforeFailure * averageTimePerInventory;
+
+		socketClient.SetProfitPerHour(gpPerHour);
+		socketClient.SendMessage();
 	}
 
 	private String SecondsToTime(int inputSeconds) {
@@ -313,11 +353,10 @@ public class HousePlankMaker extends Script {
 		sessionUptimeSeconds = (int) (timeElapsed) / 1000;
 		int yValue = textYValueStart;
 
-		g.setColor(Color.BLACK);
-		g.drawRoundRect(textXValue - 25, textYValueStart - 25, 600, 290, 50, 50);
-		g.fillRoundRect(textXValue - 25, textYValueStart - 25, 600, 290, 50, 50);
-		
 		g.setFont(font);
+		g.setColor(Color.BLACK);
+		g.drawRoundRect(textXValue - 25, textYValueStart - 25, guiRectWidth, 290, 50, 50);
+		g.fillRoundRect(textXValue - 25, textYValueStart - 25, guiRectWidth, 290, 50, 50);
 		g.setColor(Color.GREEN);
 		g.drawString("CURRENT STATUS: " + currentBotStatus, textXValue, yValue);
 		yValue += yValueIncrement;
@@ -360,16 +399,40 @@ public class HousePlankMaker extends Script {
 			yValue += yValueIncrement;
 			g.drawString("ALL TIME AVERAGE: " + NumberFormat.getInstance(Locale.US).format(allTimeAverageGpPerHour)
 					+ " GP/HOUR", textXValue, yValue);
-		}else
-		{
+		} else {
 			yValueIncrement = 35;
 		}
+
+		// TODO
+		/*
+		 * g.DrawString("CURRENT STATUS" + currentBotStatus + "\nTIME ELAPSED: " +
+		 * SecondsToTime(sessionUptimeSeconds) + "\nTOTAL PLANKS MADE: " +
+		 * totalPlanksMade + "\nLOGS LEFT IN BANK: " + logsInBank +
+		 * "\nINVENTORIES REMAINING: " + inventoriesLeftBeforeFailure +
+		 * "\nESTIMATED COMPLETION TIME: " + expectedFailureTime +
+		 * "\nSESSION NET PROFIT: " +
+		 * NumberFormat.getInstance(Locale.US).format(sessionNetProfit) +
+		 * "\nGP PER HOUR: " + NumberFormat.getInstance(Locale.US).format(gpPerHour) +
+		 * "\nALL TIME NET PROFIT: " + allTimeNetProfit + "\nALL TIME UP TIME: " +
+		 * SecondsToTime(allTimeUptimeSeconds) + "\nALL TIME AVERAGE: " +
+		 * allTimeAverageGpPerHour, textXValue, yValue);
+		 */
+
 	}
 
 	@Override
 	public void onExit() {
-		allTimeNetProfit += sessionNetProfit;
-		allTimeUptimeSeconds += sessionUptimeSeconds;
+		if (sessionNetProfit > 0) {
+			allTimeNetProfit += sessionNetProfit;
+		} else {
+			log("sessionNetProfit < 0, current Value: " + sessionNetProfit);
+		}
+
+		if (sessionUptimeSeconds > 0) {
+			allTimeUptimeSeconds += sessionUptimeSeconds;
+		} else {
+			log("sessionUptimeSeconds < 0, current Value: " + sessionUptimeSeconds);
+		}
 
 		SaveAllTimeStats();
 		log("Session ended with a total net profit of: " + Integer.toString(sessionNetProfit) + " - Runtime: "
