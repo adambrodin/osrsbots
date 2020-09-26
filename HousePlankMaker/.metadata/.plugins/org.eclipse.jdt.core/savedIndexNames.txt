@@ -1,5 +1,0 @@
-INDEX VERSION 1.131+C:\Users\adam-\Documents\Workspace\OSRS Bot\.metadata\.plugins\org.eclipse.jdt.core
-3996467556.index
-3236787678.index
-584554467.index
-2610205252.index
