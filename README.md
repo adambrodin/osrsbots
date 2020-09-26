@@ -12,7 +12,7 @@ A collection of various Old-School Runescape bots written using Java in two of t
 * Starting cash and teleports
 
 
-[NecklaceCrafter (DreamBot) - F2P](https://github.com/AdamBrodin/osrsbots/releases/tag/NecklaceCrafter "NecklaceCrafter") - turns any account into a crafting money maker by crafting various pieces of jewellery using the Edgeville furnace. The bot will automatically level up your accounts crafting level to Level 22 (Sapphire jewellery) and then start generating money.
+[NecklaceCrafter (DreamBot) - F2P](https://github.com/AdamBrodin/osrsbots/releases/tag/NecklaceCrafter "NecklaceCrafter") - turns any account into a crafting money maker by crafting various pieces of jewellery using the Edgeville furnace. The bot will automatically level up your accounts crafting level to 22 (Sapphire jewellery) and then start generating money.
 
 * ### <b>Requirements:</b>
 * Any account that has completed tutorial island
