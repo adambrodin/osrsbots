@@ -1,5 +1,5 @@
 # OSRS Bots
-A collection of various Old-School Runescape bots written using Java in two of the most popular botting libraries [OSBot](https://osbot.org/api/ "OSBot") and [DreamBot](https://dreambot.org/javadocs/ "DreamBot").
+A collection of various Old-School Runescape bots written in Java using two of the most popular botting libraries [OSBot](https://osbot.org/api/ "OSBot") and [DreamBot](https://dreambot.org/javadocs/ "DreamBot").
 
 <b>Currently available bots:</b>
 
