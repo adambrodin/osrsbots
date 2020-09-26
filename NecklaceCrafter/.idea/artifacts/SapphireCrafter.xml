@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="SapphireCrafter">
+    <output-path>$USER_HOME$/DreamBot/Scripts</output-path>
+    <root id="archive" name="SapphireCrafter.jar">
+      <element id="module-output" name="NecklaceCrafter" />
+    </root>
+  </artifact>
+</component>
