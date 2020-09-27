@@ -21,6 +21,6 @@ A collection of various Old-School Runescape bots written in Java using two of t
 [MagicCutter (DreamBot) - P2P](https://github.com/AdamBrodin/osrsbots/releases/tag/MagicCutter "MagicCutter") - cuts magic trees in the woodcutting guild, will also pick up any dropped bird's nests. Average profits range from 100-150K gp/hour.
 
 ### <b>Requirements:</b>
-* 75 woodcutting (80+ recommended)
+* Level 75 Woodcutting (80+ recommended)
 * Access to the woodcutting guild (min 75% Hosidius favor)
 * Any axe (dragon axe recommended)
