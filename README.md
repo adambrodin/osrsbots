@@ -24,3 +24,5 @@ A collection of various Old-School Runescape bots written in Java using two of t
 * Level 75 Woodcutting (80+ recommended)
 * Access to the woodcutting guild (min 75% Hosidius favor)
 * Any axe (dragon axe recommended)
+
+Note: I do not condone the usage of bots, this was simply made for educational purposes.
