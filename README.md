@@ -16,7 +16,9 @@ A collection of various Old-School Runescape bots written in Java using two of t
 ### <b>Requirements:</b>
 * Any account that has completed tutorial island
 * Some starting cash (min 500k is recommended)
-
+\
+\
+\
 [MagicCutter (DreamBot) - P2P](https://github.com/AdamBrodin/osrsbots/releases/tag/MagicCutter "MagicCutter") - cuts magic trees in the woodcutting guild, will also pick up any dropped bird's nests. Average profits range from 100-150K gp/hour.
 
 ### <b>Requirements:</b>
