@@ -11,15 +11,11 @@ A collection of various Old-School Runescape bots written in Java using two of t
 * Your selection of logs (teak recommended)
 * Starting cash and teleports
 
-
-
 [NecklaceCrafter (DreamBot) - F2P](https://github.com/AdamBrodin/osrsbots/releases/tag/NecklaceCrafter "NecklaceCrafter") - turns any account into a crafting money maker by crafting various pieces of jewellery using the Edgeville furnace. The bot will automatically level up your accounts crafting level to 22 (Sapphire jewellery) and then start generating money. Average profits range from 120-150K gp/hour.
 
 ### <b>Requirements:</b>
 * Any account that has completed tutorial island
 * Some starting cash (min 500k is recommended)
-
-
 
 [MagicCutter (DreamBot) - P2P](https://github.com/AdamBrodin/osrsbots/releases/tag/MagicCutter "MagicCutter") - cuts magic trees in the woodcutting guild, will also pick up any dropped bird's nests. Average profits range from 100-150K gp/hour.
 
