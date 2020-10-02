@@ -19,7 +19,7 @@ public class BotSetup extends AbstractScript {
     public Area grandExchangeArea = new Area(3161, 3486, 3168, 3493, 0);
     public Area edgevilleBankArea = new Area(3096, 3496, 3094, 3496, 0);
     private String leatherItemName = "Leather", needleItemName = "Needle", threadItemName = "Thread", goldBarItemName = "Gold bar", ringMouldItemName = "Ring mould", necklaceMouldItemName = "Necklace mould";
-    private int minCashRequirement = 500000, leatherRequired = 100, needlesRequired = 1, threadRequired = leatherRequired / 5, goldBarsRequiredUntil22 = 350;
+    private int minCashRequirement = 100000, leatherRequired = 50, needlesRequired = 1, threadRequired = leatherRequired / 5, goldBarsRequiredUntil22 = 400;
     private int randMinPause = 2000, randMaxPause = 3000, walkingSleepTime = 4000, runningSleepTime = 1500;
     private boolean inTraining = false;
     private String currentBotTask;
@@ -36,9 +36,9 @@ public class BotSetup extends AbstractScript {
             Walking.walk(area.getRandomTile());
 
             if (Walking.isRunEnabled()) {
-                sleep(runningSleepTime);
+                sleepUntil(() -> area.contains(getLocalPlayer()), runningSleepTime);
             } else {
-                sleep(walkingSleepTime);
+                sleepUntil(() -> area.contains(getLocalPlayer()), walkingSleepTime);
             }
         }
     }
@@ -66,19 +66,33 @@ public class BotSetup extends AbstractScript {
             Bank.openClosest();
         }
         sleepUntil(() -> Bank.isOpen(), 10000);
-        Bank.depositAllExcept("Coins");
-        RandomizedSleep();
-        Bank.close();
-        RandomizedSleep();
 
-        // Start buying items
-        NPCs.closest("Grand Exchange Clerk").interact("Exchange");
-        sleepUntil(() -> GrandExchange.isOpen(), 10000);
+        if (!Bank.contains("Leather")) {
+            Bank.depositAllExcept("Coins");
+            RandomizedSleep();
+            Bank.close();
+            RandomizedSleep();
 
-        GEAction(true, leatherItemName, leatherRequired, 500);
-        GEAction(true, needleItemName, needlesRequired, 500);
-        GEAction(true, threadItemName, threadRequired, 500);
-        GrandExchange.close();
+            // Start buying items
+            NPCs.closest("Grand Exchange Clerk").interact("Exchange");
+            sleepUntil(() -> GrandExchange.isOpen(), 10000);
+
+            GEAction(true, leatherItemName, leatherRequired, 500);
+            GEAction(true, needleItemName, needlesRequired, 500);
+            GEAction(true, threadItemName, threadRequired, 500);
+            GrandExchange.close();
+            RandomizedSleep();
+
+            Bank.openClosest();
+            RandomizedSleep();
+            Bank.depositAllItems();
+            RandomizedSleep();
+            Bank.close();
+        }
+
+        if (Bank.isOpen()) {
+            Bank.close();
+        }
 
         // Bought all items required for training until Level 5
     }
@@ -173,7 +187,10 @@ public class BotSetup extends AbstractScript {
 
     @Override
     public void onPaint(Graphics2D g) {
-        if (currentBotTask != null && inTraining) {
+        if (inTraining) {
+            if (currentBotTask == null) {
+                currentBotTask = "SETTING UP";
+            }
             Font font = new Font("Times New Roman", 1, 75);
             g.setFont(font);
             g.drawString("Current bot task: " + currentBotTask, 25, 500);
