@@ -8,7 +8,6 @@ import org.dreambot.api.methods.dialogues.Dialogues;
 import org.dreambot.api.methods.grandexchange.GrandExchange;
 import org.dreambot.api.methods.interactive.GameObjects;
 import org.dreambot.api.methods.interactive.NPCs;
-import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.methods.skills.Skill;
 import org.dreambot.api.methods.skills.Skills;
 import org.dreambot.api.methods.walking.impl.Walking;
@@ -21,9 +20,9 @@ import org.dreambot.api.wrappers.widgets.WidgetChild;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.image.ImageObserver;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Arrays;
 
 class FurnaceItem {
     int itemNeededID, itemNeededPrice, levelRequirement;
@@ -42,7 +41,7 @@ class FurnaceItem {
 @ScriptManifest(category = Category.CRAFTING, name = "NecklaceCrafter", description = "Crafts F2P necklaces using the Edgeville furnace.", author = "Adam Brodin", version = 1.0)
 public class NecklaceCrafter extends AbstractScript {
     // Variables
-    private FurnaceItem[] furnaceItems = new FurnaceItem[]
+    private final FurnaceItem[] furnaceItems = new FurnaceItem[]
             {
                     new FurnaceItem(0, 0, 5, new int[]{446, 7}, "Gold ring"),
                     new FurnaceItem(1607, 400, 22, new int[]{446, 22}, "Sapphire necklace"),
@@ -50,12 +49,16 @@ public class NecklaceCrafter extends AbstractScript {
                     new FurnaceItem(1603, 1000, 40, new int[]{446, 24}, "Ruby necklace"),
             };
 
-    private int randMinPause = 510, randMaxPause = 750;
-    private int furnaceItemToCraft, jewelleryMade, gpProfitSession, goldBarPrice = 100;
+    private long startTime;
+    private final int randMinPause = 510;
+    private final int randMaxPause = 750;
+    private int furnaceItemToCraft;
+    private int jewelleryMade;
     public static boolean isEligible = false;
 
-    private Area furnaceArea = new Area(3109, 3499, 3109, 3499, 0);
-    private String currentBotTask, mouldItem = "Necklace mould", goldBarItem = "Gold bar", combineItem = "Sapphire";
+    private String currentBotTask;
+    private String mouldItem = "Necklace mould";
+    private final String goldBarItem = "Gold bar";
     private Image rectImage;
 
     private Image getImage(String url) {
@@ -65,6 +68,14 @@ public class NecklaceCrafter extends AbstractScript {
             e.printStackTrace();
         }
         return null;
+    }
+
+    private String SecondsToHms(int seconds) {
+        final int s = seconds % 60;
+        final int m = (seconds % 3600) / 60;
+        final int h = seconds / 3600;
+
+        return h + "h:" + m + "m:" + s + "s";
     }
 
     @Override
@@ -82,6 +93,9 @@ public class NecklaceCrafter extends AbstractScript {
         if (currentBotTask != null) {
             g.drawString("CURRENT TASK: " + currentBotTask, x + 5, y + 25);
             g.drawString("JEWELLERY MADE: " + jewelleryMade, x + 5, y + 75);
+            g.drawString("TIME ELAPSED: " + SecondsToHms((int) (CountTime() / 1000)), x + 5, y + 125);
+        } else {
+            g.drawString("NECKLACECRAFTER V" + this.getManifest().version() + " BY " + this.getManifest().author(), x + 5, y + 85);
         }
     }
 
@@ -114,60 +128,70 @@ public class NecklaceCrafter extends AbstractScript {
         NPCs.closest("Banker").interact("Bank");
         sleepUntil(Bank::isOpen, 5000);
         CalculateOptimalNecklace();
-        int goldBarsInBank = Bank.count(goldBarItem);
-        Bank.depositAllItems();
-        RandomizedSleep();
 
-        if (Bank.contains(furnaceItems)) {
+        if (Bank.count(goldBarItem) <= 13 || Bank.count(furnaceItems[furnaceItemToCraft].itemNeededID) <= 13) {
+            int goldBarsInBank = Bank.count(goldBarItem);
+            Bank.depositAllItems();
+            RandomizedSleep();
+
             Bank.setWithdrawMode(BankMode.NOTE);
             RandomizedSleep();
 
             for (int i = 0; i <= furnaceItems.length - 1; i++) {
                 Bank.withdrawAll(furnaceItems[i].itemName);
                 RandomizedSleep();
+                if (i > 0) {
+                    Bank.withdrawAll(furnaceItems[i - 1].itemNeededID);
+                }
             }
 
             Bank.setWithdrawMode(BankMode.ITEM);
             RandomizedSleep();
-        }
-        Bank.withdrawAll("Coins");
-        RandomizedSleep();
-        Bank.close();
+            Bank.withdrawAll("Coins");
+            RandomizedSleep();
+            Bank.close();
 
-        // Open the Grand Exchange
-        NPCs.closest("Grand Exchange Clerk").interact("Exchange");
-        sleepUntil(() -> GrandExchange.isOpen(), 10000);
+            // Open the Grand Exchange
+            NPCs.closest("Grand Exchange Clerk").interact("Exchange");
+            sleepUntil(GrandExchange::isOpen, 10000);
 
-        for (int i = 0; i <= furnaceItems.length - 1; i++) {
-            if (Inventory.contains(furnaceItems[i].itemName)) {
-                setup.GEAction(false, furnaceItems[i].itemName, Inventory.count(furnaceItems[i].itemName), 1);
-                RandomizedSleep();
+            for (int i = 0; i <= furnaceItems.length - 1; i++) {
+                if (Inventory.contains(furnaceItems[i].itemName)) {
+                    setup.GEAction(false, furnaceItems[i].itemName, Inventory.count(furnaceItems[i].itemName), 1);
+                    RandomizedSleep();
+                }
+                if (i > 0 && Inventory.contains(furnaceItems[i - 1].itemNeededID)) {
+                    setup.GEAction(false, furnaceItems[furnaceItemToCraft - 1].itemName.substring(0, furnaceItems[furnaceItemToCraft - 1].itemName.indexOf(" ")), Inventory.count(furnaceItems[i - 1].itemName), 1);
+                    RandomizedSleep();
+                }
             }
+
+            int suppliesToBuy;
+            if (furnaceItems[furnaceItemToCraft].itemNeededID == 0) {
+                suppliesToBuy = 200;
+            } else {
+                suppliesToBuy = ((Inventory.get("Coins").getAmount()) / furnaceItems[furnaceItemToCraft].itemNeededPrice);
+            }
+
+            int goldBarPrice = 100; // TODO FETCH PRICE
+            setup.GEAction(true, goldBarItem, (Math.max(suppliesToBuy - goldBarsInBank, 0)), goldBarPrice);
+
+            if (furnaceItems[furnaceItemToCraft].itemNeededID != 0) {
+                suppliesToBuy = ((Inventory.get("Coins").getAmount()) / furnaceItems[furnaceItemToCraft].itemNeededPrice);
+                setup.GEAction(true, furnaceItems[furnaceItemToCraft].itemName.substring(0, furnaceItems[furnaceItemToCraft].itemName.indexOf(" ")), suppliesToBuy, furnaceItems[furnaceItemToCraft].itemNeededPrice);
+            }
+
+            GrandExchange.close();
+            sleep(2000);
+            Bank.openClosest();
+            sleepUntil(Bank::isOpen, 10000);
+            sleep(2000);
+            Bank.depositAllItems();
+            sleep(2000);
+            Bank.close();
         }
 
-        int suppliesToBuy = 100;
-        if (furnaceItems[furnaceItemToCraft].itemNeededID == 0) {
-            suppliesToBuy = 200;
-        } else {
-            suppliesToBuy = ((Inventory.get("Coins").getAmount()) / furnaceItems[furnaceItemToCraft].itemNeededPrice);
-        }
-
-        setup.GEAction(true, goldBarItem, (suppliesToBuy - goldBarsInBank > 0 ? suppliesToBuy - goldBarsInBank : 0), goldBarPrice);
-
-        if (furnaceItems[furnaceItemToCraft].itemNeededID != 0) {
-            suppliesToBuy = ((Inventory.get("Coins").getAmount()) / furnaceItems[furnaceItemToCraft].itemNeededPrice);
-            setup.GEAction(true, furnaceItems[furnaceItemToCraft].itemName.substring(0, furnaceItems[furnaceItemToCraft].itemName.indexOf(" ")), suppliesToBuy, furnaceItems[furnaceItemToCraft].itemNeededPrice);
-        }
-
-        GrandExchange.close();
-        sleep(2000);
-        Bank.openClosest();
-        sleepUntil(() -> Bank.isOpen(), 10000);
-        sleep(2000);
-        Bank.depositAllItems();
-        sleep(2000);
-        Bank.close();
-
+        currentBotTask = "WALKING TO EDGEVILLE";
         setup.WalkToArea(setup.edgevilleBankArea);
     }
 
@@ -178,53 +202,61 @@ public class NecklaceCrafter extends AbstractScript {
         if (!Walking.isRunEnabled()) {
             Walking.toggleRun();
         }
-        GameObjects.closest("Bank booth").interact("Bank");
-        currentBotTask = "WALKING TO THE BANK";
 
-        // Deposits all unnecessary items and withdraws the required ones
-        sleepUntil(Bank::isOpen, 10000);
+        if (!Inventory.contains(goldBarItem) && !Inventory.contains(furnaceItems[furnaceItemToCraft].itemNeededID)) {
+            GameObjects.closest("Bank booth").interact("Bank");
+            currentBotTask = "WALKING TO THE BANK";
 
-        if (Bank.isOpen()) {
-            currentBotTask = "BANKING ITEMS";
-            if (Bank.count(goldBarItem) >= 13) {
-                if (furnaceItems[furnaceItemToCraft].itemNeededID == 0 || Bank.count(furnaceItems[furnaceItemToCraft].itemNeededID) >= 13) {
-                    Bank.depositAllExcept(mouldItem);
-                    if (!Inventory.contains(mouldItem)) {
-                        if (Bank.contains(mouldItem)) {
-                            Bank.depositAllItems();
-                            RandomizedSleep();
-                            Bank.withdraw(mouldItem);
-                        } else {
-                            currentBotTask = "NO MOULD WAS FOUND, EXITING!!!";
-                            sleep(10000);
-                            stop();
+            // Deposits all unnecessary items and withdraws the required ones
+            sleepUntil(Bank::isOpen, 10000);
+
+            if (Bank.isOpen()) {
+                currentBotTask = "BANKING ITEMS";
+                if (Bank.count(goldBarItem) >= 13) {
+                    if (furnaceItems[furnaceItemToCraft].itemNeededID == 0 || Bank.count(furnaceItems[furnaceItemToCraft].itemNeededID) >= 13) {
+                        Bank.depositAllExcept(mouldItem);
+                        if (!Inventory.contains(mouldItem)) {
+                            if (Bank.contains(mouldItem)) {
+                                Bank.depositAllItems();
+                                RandomizedSleep();
+                                Bank.withdraw(mouldItem);
+                            } else {
+                                currentBotTask = "NO MOULD WAS FOUND, EXITING!!!";
+                                sleep(10000);
+                                stop();
+                            }
                         }
-                    }
 
-                    RandomizedSleep();
-                    if (furnaceItems[furnaceItemToCraft].itemNeededID == 0) {
-                        Bank.withdrawAll(goldBarItem);
-                    } else {
-                        Bank.withdraw(goldBarItem, 13);
-                    }
-                    RandomizedSleep();
-                    if (furnaceItems[furnaceItemToCraft].itemNeededID != 0) {
-                        Bank.withdraw(furnaceItems[furnaceItemToCraft].itemNeededID, 13);
                         RandomizedSleep();
+                        if (furnaceItems[furnaceItemToCraft].itemNeededID == 0) {
+                            Bank.withdrawAll(goldBarItem);
+                        } else {
+                            Bank.withdraw(goldBarItem, 13);
+                        }
+                        RandomizedSleep();
+                        if (furnaceItems[furnaceItemToCraft].itemNeededID != 0) {
+                            Bank.withdraw(furnaceItems[furnaceItemToCraft].itemNeededID, 13);
+                            RandomizedSleep();
+                        }
+                    } else {
+                        RestockItems();
                     }
                 } else {
                     RestockItems();
                 }
-            } else {
-                RestockItems();
             }
         }
 
         Bank.close();
     }
 
+    private long CountTime() {
+        return System.currentTimeMillis() - startTime;
+    }
+
     @Override
     public void onStart() {
+        startTime = System.currentTimeMillis();
         rectImage = getImage("https://i.imgur.com/utiuN6I.png");
         BotSetup trainer = new BotSetup();
 
@@ -254,9 +286,8 @@ public class NecklaceCrafter extends AbstractScript {
                 currentBotTask = "OPENING FURNACE INTERFACE";
 
                 // Waits until the interface is opened
-                while (!FurnaceInterfaceVisible(Widgets.getWidgetChild(446, 1, 1))) {
-                    RandomizedSleep();
-                }
+                sleepUntil(() -> FurnaceInterfaceVisible(Widgets.getWidgetChild(446, 1, 1)), 20000);
+                RandomizedSleep();
                 Widgets.getWidgetChild(furnaceItems[furnaceItemToCraft].furnaceWidgetID[0], furnaceItems[furnaceItemToCraft].furnaceWidgetID[1]).interact();
                 currentBotTask = "SMELTING JEWELLERY";
 
@@ -275,13 +306,9 @@ public class NecklaceCrafter extends AbstractScript {
         }
     }
 
-    private void MakeAmulets() {
-        FurnaceInteract();
-    }
-
     private void BotLoop() {
         BankItems();
-        MakeAmulets();
+        FurnaceInteract();
     }
 
     @Override
