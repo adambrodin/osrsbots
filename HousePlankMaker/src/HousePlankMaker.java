@@ -318,7 +318,7 @@ public class HousePlankMaker extends Script {
 		settingsMenu.interact();
 		RandomizedSleep();
 
-		houseOptions = getWidgets().get(261, 101);
+		houseOptions = getWidgets().get(116, 28);
 		if (houseOptions != null) {
 			houseOptions.interact();
 			RandomizedSleep();
