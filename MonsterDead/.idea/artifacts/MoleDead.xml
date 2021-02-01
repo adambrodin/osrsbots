@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="MoleDead">
+    <output-path>$USER_HOME$/DreamBot/Scripts</output-path>
+    <root id="archive" name="MoleDead.jar">
+      <element id="module-output" name="MonsterDead" />
+    </root>
+  </artifact>
+</component>
