@@ -224,8 +224,7 @@ public class Bot extends AbstractScript {
         for (PotionLevel p : potions) {
             if (Inventory.contains(p.craftedPotionName)) {
                 log("Fetching price for: " + p.craftedPotionName);
-                //int price = GrandExchangeAPI.getPrice(2);
-                int price = 6000;
+                int price = GrandExchangeAPI.getPricedItem(p.craftedPotionID).getSellAverage();
                 sleepUntil(() -> price > 0, 10000);
                 log("Price of " + p.craftedPotionName + " is: " + price + "gp");
                 logInfo(p.craftedPotionName + " price is: " + price);
@@ -271,8 +270,7 @@ public class Bot extends AbstractScript {
             int costPerInventory = 0;
             for (int i = 0; i <= potions[potionIndex].combineItemIds.length - 1; i++) {
                 logInfo("Looking up price for ID: " + potions[potionIndex].combineItemIds[i]);
-                //int price = GrandExchangeAPI.getPrice(potions[potionIndex].combineItemIds[i]);
-                int price = 6000;
+                int price = GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getBuyAverage();
                 sleepUntil(() -> price > 0, 10000);
                 logInfo("Price for ID" + potions[potionIndex].combineItemIds[0] + " (" + potions[potionIndex].combineItemNames[1] + ") is: " + price);
                 costPerInventory += (int) (price * 1.1) * 14;
@@ -292,8 +290,7 @@ public class Bot extends AbstractScript {
             for (int i = 0; i <= potions[potionIndex].combineItemIds.length - 1; i++) {
                 log("Looking up price for ID: " + potions[potionIndex].combineItemIds[i]);
                 sleep(2000);
-                //int price = GrandExchangeAPI.getPrice(potions[potionIndex].combineItemIds[i]);
-                int price = 6000;
+                int price = GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getBuyAverage();
                 sleepUntil(() -> price > 0, 10000);
                 sleep(1000);
                 if (i == 0) {
