@@ -20,6 +20,7 @@ import org.dreambot.api.methods.widget.Widgets;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
+import org.dreambot.api.wrappers.items.Item;
 import org.dreambot.api.wrappers.widgets.WidgetChild;
 
 import javax.imageio.ImageIO;
@@ -32,7 +33,7 @@ import java.util.Locale;
 @ScriptManifest(category = Category.HERBLORE, name = "UltraPotion", description = "Makes potions for a nice profit.", author = "Adam Brodin", version = 1.0, image = "https://static.wikia.nocookie.net/2007scape/images/3/30/Cadava_potion_detail.png/revision/latest?cb=20180809152123")
 public class Bot extends AbstractScript {
     private PotionLevel[] potions;
-    private int potionIndex, potionsMade, inventoriesCompleted, firstItemBankAmount, secondItemBankAmount, sessionProfit;
+    private int potionIndex, potionsMade, inventoriesCompleted, firstItemBankAmount, secondItemBankAmount, sessionProfit, bankValue;
     private final int textYOffset = 30;
     private Image uiImage;
     private long startTime;
@@ -45,7 +46,7 @@ public class Bot extends AbstractScript {
                         new PotionLevel(3, new int[]{91, 221}, new String[]{"Guam potion (unf)", "Eye of newt"}, 121, 9, "Attack potion(3)", new int[]{100, 10}, 3),
                         new PotionLevel(5, new int[]{93, 235}, new String[]{"Marrentill potion (unf)", "Unicorn horn dust"}, 175, 32, "Antipoison(3)", new int[]{64, 300}, 151),
                         new PotionLevel(12, new int[]{95, 225}, new String[]{"Tarromin potion (unf)", "Limpwurt root"}, 115, 236, "Strength potion(3)", new int[]{195, 735}, 195),
-                        new PotionLevel(30, new int[]{257, 227}, new String[]{"Ranarr weed", "Vial of water"}, 99, 99999, "Ranarr potion (unf)", new int[]{6300, 10}, 6469)
+                        new PotionLevel(30, new int[]{257, 227}, new String[]{"Ranarr weed", "Vial of water"}, 99, 99999, "Ranarr potion (unf)", new int[]{6300, 5}, 6469)
                 };
 
         sleepUntil(() -> Client.getGameState() == GameState.LOGGED_IN, 30000); // Wait until the player is logged to function properly
@@ -73,7 +74,7 @@ public class Bot extends AbstractScript {
         EventLoop();
 
         int random = Calculations.random(0, 100);
-        if (random >= 95) {
+        if (random >= 95 && (CountTime() / 1000) >= 300) {
             int breakTime = Calculations.random(15, 90);
             logInfo("Taking a small break... (" + breakTime + " seconds)");
             return breakTime * 1000;
@@ -105,7 +106,13 @@ public class Bot extends AbstractScript {
 
         int herbloreLevel = Skills.getRealLevel(Skill.HERBLORE);
         if (Inventory.contains(potions[potionIndex].combineItemIds[0]) && Inventory.contains(potions[potionIndex].combineItemIds[1])) {
-            Inventory.get(potions[potionIndex].combineItemIds[0]).interact("Use");
+            int lastItemID = 0;
+            for (int i = 0; i < 28 - Inventory.getEmptySlots(); i++) {
+                if (Inventory.getIdForSlot(i) == potions[potionIndex].combineItemIds[0]) {
+                    lastItemID = i;
+                }
+            }
+            Inventory.getItemInSlot(lastItemID).interact("Use");
             sleepUntil(Inventory::isItemSelected, 5000);
             sleep(Calculations.random(250, 1500));
             Inventory.get(potions[potionIndex].combineItemIds[1]).interact("Use");
@@ -113,11 +120,11 @@ public class Bot extends AbstractScript {
             sleep(Calculations.random(100, 500));
             if (Widgets.getWidgetChild(270, 14) != null) {
                 Keyboard.type(" ");
-                log("Combining items into a potion..");
+                logInfo("Combining items into a potion..");
             }
 
             sleep(1000);
-            sleepUntil(() -> (!Inventory.contains(potions[potionIndex].combineItemIds[0]) && !Inventory.contains(potions[potionIndex].combineItemIds[1])) || Skills.getRealLevel(Skill.HERBLORE) > herbloreLevel, 30000);
+            sleepUntil(() -> !Inventory.contains(potions[potionIndex].combineItemIds[0]) || !Inventory.contains(potions[potionIndex].combineItemIds[1]) || Skills.getRealLevel(Skill.HERBLORE) > herbloreLevel, 30000);
 
             // If the player leveled up whilst making potions
             if (Skills.getRealLevel(Skill.HERBLORE) > herbloreLevel && Inventory.contains(potions[potionIndex].combineItemIds[0]) && Inventory.contains(potions[potionIndex].combineItemIds[1])) {
@@ -125,7 +132,7 @@ public class Bot extends AbstractScript {
                     Dialogues.clickContinue();
                 }
 
-                log("Leveled up to level:  " + Skills.getRealLevel(Skill.HERBLORE));
+                logInfo("Leveled up to level:  " + Skills.getRealLevel(Skill.HERBLORE));
                 return;
             }
 
@@ -140,14 +147,14 @@ public class Bot extends AbstractScript {
 
     private int GetInventoryProfit(int potionsMade) {
         // The amount of income per inventory (14x) finished potions
-        int inventorySellPrice = GrandExchangeAPI.getPricedItem(potions[potionIndex].craftedPotionID).getSellAverage() * potionsMade;
+        int inventorySellPrice = GrandExchangeAPI.getPricedItem(potions[potionIndex].craftedPotionID).getOverallAverage() * potionsMade;
         if (inventorySellPrice <= 0) {
             inventorySellPrice = potions[potionIndex].backupFinishedPotionPrice * potionsMade;
         }
 
         // The cost of the supplies needed to create said potion
-        int supplyCosts = (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[0]).getSellAverage() * potionsMade)
-                + (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[1]).getSellAverage() * potionsMade);
+        int supplyCosts = (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[0]).getOverallAverage() * potionsMade)
+                + (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[1]).getOverallAverage() * potionsMade);
 
         if (supplyCosts <= 0) {
             supplyCosts = (potions[potionIndex].backupCombinePrices[0] * potionsMade) + (potions[potionIndex].backupCombinePrices[1] * potionsMade);
@@ -201,10 +208,39 @@ public class Bot extends AbstractScript {
             OpenBank();
         }
 
-        logInfo("Depositing all items");
-        Bank.depositAllItems();
-        sleepUntil(() -> Inventory.getEmptySlots() == 28, 5000);
-        if (Bank.count(potions[potionIndex].combineItemIds[0]) >= 14 && Bank.count(potions[potionIndex].combineItemIds[1]) >= 14) {
+        if (Bank.contains(potions[potionIndex].combineItemIds[0]) && Bank.contains(potions[potionIndex].combineItemIds[1]) || (Inventory.contains(potions[potionIndex].combineItemIds[0] + 1) && Inventory.contains(potions[potionIndex].combineItemIds[1] + 1))) {
+            logInfo("Depositing all items");
+            Bank.depositAllItems();
+            if (Bank.contains("Coins")) {
+                int value = Bank.get("Coins").getAmount();
+                for (int i = 0; i <= potions[potionIndex].combineItemIds.length - 1; i++) {
+                    if (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getOverallAverage() > potions[potionIndex].backupCombinePrices[i] * 0.8) {
+                        logInfo("Price for " + potions[potionIndex].combineItemNames[i] + " is: " + NumberFormat.getInstance(Locale.US).format(GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getOverallAverage()) + "gp");
+                        value += GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getOverallAverage() * Bank.count(potions[potionIndex].combineItemIds[i]);
+                    } else {
+                        logInfo("Using backup price for " + potions[potionIndex].combineItemNames[i] + " which is: " + NumberFormat.getInstance(Locale.US).format(potions[potionIndex].backupCombinePrices[i]) + "gp");
+                        value += potions[potionIndex].backupCombinePrices[i] * Bank.count(potions[potionIndex].combineItemIds[i]);
+                    }
+                }
+
+                for (int i = 0; i < potions.length; i++) {
+                    if (Bank.contains(potions[i].craftedPotionID)) {
+                        if (GrandExchangeAPI.getPricedItem(potions[i].craftedPotionID).getOverallAverage() > potions[i].backupFinishedPotionPrice * 0.8) {
+                            logInfo("Price for " + potions[potionIndex].craftedPotionName + " is: " + NumberFormat.getInstance(Locale.US).format(GrandExchangeAPI.getPricedItem(potions[potionIndex].craftedPotionID).getOverallAverage()) + "gp");
+                            value += GrandExchangeAPI.getPricedItem(potions[i].craftedPotionID).getOverallAverage() * Bank.count(potions[i].craftedPotionID);
+                        } else {
+                            logInfo("Using backup price for " + potions[potionIndex].craftedPotionName + " which is: " + NumberFormat.getInstance(Locale.US).format(potions[potionIndex].backupFinishedPotionPrice) + "gp");
+                            value += potions[i].backupFinishedPotionPrice * Bank.count(potions[i].craftedPotionID);
+                        }
+                    }
+                }
+
+                bankValue = value;
+            }
+
+
+            sleepUntil(() -> Inventory.getEmptySlots() == 28, 5000);
+
             if (Bank.getWithdrawMode() != BankMode.ITEM) {
                 logInfo("Changing withdraw mode to ITEM");
                 Bank.setWithdrawMode(BankMode.ITEM);
@@ -221,16 +257,17 @@ public class Bot extends AbstractScript {
         } else {
             // Buy more of the required items;
             logInfo("Not enough items in bank, restocking");
-            //Bank.close();
-            //sleepUntil(() -> !Bank.isOpen(), 5000);
             firstItemBankAmount = Bank.count(potions[potionIndex].combineItemIds[0]);
             secondItemBankAmount = Bank.count(potions[potionIndex].combineItemIds[1]);
-            log("Found " + firstItemBankAmount + "x " + potions[potionIndex].combineItemNames[0] + " & " + secondItemBankAmount + "x " + potions[potionIndex].combineItemNames[1] + " in bank");
+            logInfo("Found " + firstItemBankAmount + "x " + potions[potionIndex].combineItemNames[0] + " & " + secondItemBankAmount + "x " + potions[potionIndex].combineItemNames[1] + " in bank");
             RestockItems();
         }
     }
 
     private void RestockItems() {
+        Bank.depositAllExcept("Coins");
+        sleepUntil(() -> Inventory.getEmptySlots() == 27, 5000);
+
         if (Inventory.contains("Coins") && Bank.contains("Coins")) {
             Bank.withdrawAll("Coins");
             sleepUntil(() -> Inventory.get("Coins").getAmount() > 0, 5000);
@@ -286,12 +323,12 @@ public class Bot extends AbstractScript {
         int itemsToSell = 0;
         for (PotionLevel p : potions) {
             if (Inventory.contains(p.craftedPotionName)) {
-                log("Fetching price for: " + p.craftedPotionName);
-                int price = GrandExchangeAPI.getPricedItem(p.craftedPotionID).getBuyAverage();
+                logInfo("Fetching price for: " + p.craftedPotionName);
+                int price = GrandExchangeAPI.getPricedItem(p.craftedPotionID).getOverallAverage();
                 if (price <= 0) {
                     price = p.backupFinishedPotionPrice / 2;
                 }
-                log("Price of " + p.craftedPotionName + " is: " + price + "gp");
+                logInfo("Price of " + p.craftedPotionName + " is: " + NumberFormat.getInstance(Locale.US).format(price) + "gp");
                 logInfo(p.craftedPotionName + " price is: " + price);
                 int amountToSell = Inventory.count(p.craftedPotionID + 1);
                 GrandExchange.sellItem(p.craftedPotionName, Inventory.count(p.craftedPotionID + 1), (int) (price * 0.9));
@@ -327,20 +364,21 @@ public class Bot extends AbstractScript {
 
         sleepUntil(() -> !GrandExchange.isReadyToCollect(), 5000);
         int amountOfCash = Inventory.get("Coins").getAmount();
-        logInfo("Amount of coins: " + amountOfCash + "gp");
+        logInfo("Amount of coins: " + NumberFormat.getInstance(Locale.US).format(amountOfCash) + "gp");
 
-        if (amountOfCash >= (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[0]).getBuyAverage() * 14 + (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[0]).getBuyAverage()) * 14)) {
+        if (amountOfCash >= (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[0]).getOverallAverage() * 14 + (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[1]).getOverallAverage()) * 14)
+                || Inventory.count(potions[potionIndex].combineItemIds[0]) >= 14 || Inventory.count(potions[potionIndex].combineItemIds[1]) >= 14) {
             // The max amount of inventories that the money is sufficient for
             int costPerInventory = 0;
 
             // Calculating cost per inventory
             for (int i = 0; i <= potions[potionIndex].combineItemIds.length - 1; i++) {
-                int price = GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getBuyAverage();
+                int price = GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getOverallAverage();
                 if (price <= 0) {
                     price = potions[potionIndex].backupCombinePrices[i] * 2;
                 }
                 price += 5;
-                costPerInventory += (int) (price * 1.1) * 14;
+                costPerInventory += (int) (price * 1.05) * 14;
             }
 
             int purchasableInventories = (int) amountOfCash / costPerInventory;
@@ -352,9 +390,9 @@ public class Bot extends AbstractScript {
 
             // Purchasing each necessary item
             for (int i = 0; i <= potions[potionIndex].combineItemIds.length - 1; i++) {
-                log("Looking up price for ID: " + potions[potionIndex].combineItemIds[i]);
+                logInfo("Looking up price for: " + potions[potionIndex].combineItemNames[i]);
                 sleep(2000);
-                int price = GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getBuyAverage();
+                int price = GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[i]).getOverallAverage();
                 if (price <= 0) {
                     price = potions[potionIndex].backupCombinePrices[i] * 2;
                 }
@@ -363,25 +401,25 @@ public class Bot extends AbstractScript {
                 if (i == 0) {
                     int amountToBuy = (purchasableInventories * 14) - firstItemBankAmount;
                     if (amountToBuy <= 0) {
-                        log("Not buying anything, amount to buy for " + potions[potionIndex].combineItemNames[i] + " is: " + amountToBuy);
+                        logInfo("Not buying anything, amount to buy for " + potions[potionIndex].combineItemNames[i] + " is: " + amountToBuy);
                         continue;
                     }
                     if (100 * (secondItemBankAmount - firstItemBankAmount) <= amountOfCash && (secondItemBankAmount - firstItemBankAmount) >= 28) { // TODO FIX
                         amountToBuy = secondItemBankAmount - firstItemBankAmount;
                     }
-                    GrandExchange.buyItem(potions[potionIndex].combineItemNames[i], Math.min(amountToBuy, potions[potionIndex].potionsRequiredUntilNext), (int) (price * 1.1)); // Making sure the player doesn't buy more than needed for current level, (int) (price * 1.1));
+                    GrandExchange.buyItem(potions[potionIndex].combineItemNames[i], Math.min(amountToBuy, potions[potionIndex].potionsRequiredUntilNext), (int) (price * 1.05)); // Making sure the player doesn't buy more than needed for current level, (int) (price * 1.1));
                 } else if (i == 1) {
                     int amountToBuy = (purchasableInventories * 14) - secondItemBankAmount;
                     if (amountToBuy <= 0) {
-                        log("Not buying anything, amount to buy for " + potions[potionIndex].combineItemNames[i] + " is: " + amountToBuy);
+                        logInfo("Not buying anything, amount to buy for " + potions[potionIndex].combineItemNames[i] + " is: " + amountToBuy);
                         continue;
                     }
                     if (100 * (firstItemBankAmount - secondItemBankAmount) <= amountOfCash && (firstItemBankAmount - secondItemBankAmount) >= 28) { // TODO FIX
                         amountToBuy = firstItemBankAmount - secondItemBankAmount;
                     }
-                    GrandExchange.buyItem(potions[potionIndex].combineItemNames[i], Math.min(amountToBuy, potions[potionIndex].potionsRequiredUntilNext), (int) (price * 1.1)); // Making sure the player doesn't buy more than needed for current level, (int) (price * 1.1));
+                    GrandExchange.buyItem(potions[potionIndex].combineItemNames[i], Math.min(amountToBuy, potions[potionIndex].potionsRequiredUntilNext), (int) (price * 1.05)); // Making sure the player doesn't buy more than needed for current level, (int) (price * 1.1));
                 }
-                log("Price for ID" + potions[potionIndex].combineItemIds[i] + " (" + potions[potionIndex].combineItemNames[i] + ") is: " + price);
+                logInfo("Price for: " + potions[potionIndex].combineItemNames[i] + " is: " + NumberFormat.getInstance(Locale.US).format(price) + "gp");
                 sleepUntil(() -> GrandExchange.slotContainsItem(0), 5000);
                 sleep(3000);
                 CollectGEItems();
@@ -393,8 +431,8 @@ public class Bot extends AbstractScript {
             sleep(1000);
         } else {
             logError("Amount of money (" + amountOfCash + ") is too low for a single inventory of supplies which cost "
-                    + (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[0]).getBuyAverage() * 14
-                    + (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[0]).getBuyAverage()) * 14) + " exiting..");
+                    + (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[0]).getOverallAverage() * 14
+                    + (GrandExchangeAPI.getPricedItem(potions[potionIndex].combineItemIds[1]).getOverallAverage()) * 14) + " exiting..");
             stop();
         }
     }
@@ -404,7 +442,7 @@ public class Bot extends AbstractScript {
         Font font = new Font("Consolas", Font.PLAIN, 25);
         WidgetChild chatBoxWidget = Widgets.getWidgetChild(162, 0);
         int heightOffset = 100;
-        int widthOffset = 10;
+        int widthOffset = 25;
 
         int x = chatBoxWidget.getX();
         int y = chatBoxWidget.getY() - heightOffset;
@@ -414,22 +452,20 @@ public class Bot extends AbstractScript {
         g.setColor(Color.WHITE);
         g.setFont(font);
         g.drawString("TIME ELAPSED: " + SecondsToHms((int) (CountTime() / 1000)), x + 5, y + textYOffset);
-        g.drawString("INVENTORIES COMPLETED: " + inventoriesCompleted, x + 5, y + textYOffset * 2);
-        g.drawString("SESSION PROFIT: " + NumberFormat.getInstance(Locale.US).format(sessionProfit) + "gp - " + sessionProfit / inventoriesCompleted + "gp/inv", x + 5, y + textYOffset * 3);
+        g.drawString("INVENTORIES COMPLETED: " + inventoriesCompleted + "x", x + 5, y + textYOffset * 2);
+        g.drawString("SESSION PROFIT: " + NumberFormat.getInstance(Locale.US).format(sessionProfit) + "gp (" + sessionProfit / inventoriesCompleted + "gp/inv)", x + 5, y + textYOffset * 3);
         g.drawString("PROFIT/HOUR: " + NumberFormat.getInstance(Locale.US).format(sessionProfit / (int) (CountTime() / 1000) * 3600) + "gp", x + 5, y + textYOffset * 4);
+        g.drawString("BANK VALUE: " + NumberFormat.getInstance(Locale.US).format(bankValue) + "gp", x + 5, y + textYOffset * 5);
     }
 
     private String SecondsToHms(int seconds) {
         final int s = seconds % 60;
         final int m = (seconds % 3600) / 60;
         final int h = seconds / 3600;
-
         return h + "h:" + m + "m:" + s + "s";
     }
 
     private long CountTime() {
         return System.currentTimeMillis() - startTime;
     }
-
-
 }
